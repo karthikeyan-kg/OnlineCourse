@@ -1,10 +1,12 @@
-﻿using Microsoft.IdentityModel.Tokens;
+﻿using FluentValidation;
+using Microsoft.IdentityModel.Tokens;
 using System.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using UserService.Application.DTOs;
 using UserService.Application.Interfaces;
+using UserService.Application.Validators;
 using UserService.Domain.Entities;
 using UserService.Infrastructure.Repositories;
 
@@ -14,15 +16,22 @@ namespace UserService.Application.Services
     {
         private readonly IUserRepository _repo;
         private readonly IConfiguration _config;
+        private readonly IValidator<RegisterDto> _validator;
 
-        public AuthService(IUserRepository repo, IConfiguration config)
+        public AuthService(IUserRepository repo, IConfiguration config, IValidator<RegisterDto> validator)
         {
             _repo = repo;
             _config = config;
+            _validator = validator;
         }
 
         public async Task<string> Register(RegisterDto dto)
         {
+            var result = await _validator.ValidateAsync(dto);
+
+            if (!result.IsValid)
+                throw new ValidationException(result.Errors);
+
             var existing = await _repo.GetByUsername(dto.Username);
             if (existing != null) throw new Exception("Username already exists");
 
