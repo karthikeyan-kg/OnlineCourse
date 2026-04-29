@@ -17,6 +17,8 @@ namespace UserService.Infrastructure.Repositories
         }
 
         public async Task<User?> GetByUsername(string username)
-            => await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+        { 
+            return await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+        }
     }
 }

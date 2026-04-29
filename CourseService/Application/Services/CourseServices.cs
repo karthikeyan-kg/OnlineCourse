@@ -16,16 +16,16 @@ namespace CourseService.Application.Services
             _enrollRepo = enrollRepo;
         }
 
-        public async Task<Course> CreateCourseAsync(CourseDto dto)
+        public async Task<Course> CreateCourseAsync(CourseDto dto, Guid userId)
         {
-            if (dto.EndDate <= dto.StartDate)
-                throw new ArgumentException("EndDate must be after StartDate");
+            if (userId == Guid.Empty)
+                throw new ArgumentException("Missing InstructorId");
 
             var course = new Course
             {
                 Id = dto.Id,
                 Title = dto.Title,
-                InstructorId = dto.InstructorId,
+                UserId = userId,
                 StartDate = dto.StartDate,
                 EndDate = dto.EndDate
             };
@@ -34,7 +34,7 @@ namespace CourseService.Application.Services
             return course;
         }
 
-        public async Task<List<Course>> GetMyCoursesAsync(Guid studentId)
+        public async Task<List<Course>> GetCoursesAsync(Guid studentId)
         {
             var enrollments = await _enrollRepo.GetEnrollmentsByStudentAsync(studentId);
             var courses = new List<Course>();
@@ -65,6 +65,35 @@ namespace CourseService.Application.Services
         public async Task<List<Course>> SearchCoursesAsync(DateTime start, DateTime end)
         {
             return await _courseRepo.GetCoursesByDateRange(start, end);
+        }
+
+        public async Task<Course> UpdateCourseAsync(CourseDto dto, Guid userId)
+        {
+            if(dto.Id == Guid.Empty)
+                throw new InvalidOperationException("Enter valid Course ID");
+
+            var course = await _courseRepo.GetCourseAssociatedInstructorAsync(dto.Id, userId);
+            if (course == null)
+                throw new InvalidOperationException("You are not allowed to update this course");
+
+            // Map DTO properties onto the existing Course instance instead of casting
+            course.Title = dto.Title;
+            course.StartDate = dto.StartDate;
+            course.EndDate = dto.EndDate;
+            course.UserId = userId;
+            course.Id = dto.Id;
+            return await _courseRepo.UpdateCourseAsync(course);
+        }
+
+        public async Task DeleteCourseAsync(Guid courseId, Guid userId)
+        {
+            if(courseId == Guid.Empty)
+                throw new InvalidOperationException("Enter valid Course ID");
+            var course = await _courseRepo.GetCourseAssociatedInstructorAsync(courseId, userId);
+            if (course == null)
+                throw new InvalidOperationException("You are not allowed to delete this course");
+
+            await _courseRepo.DeleteCourseAsync(course);
         }
     }
 }

@@ -1,6 +1,6 @@
 ﻿using CourseService.Domain.Entities;
 
-namespace CourseService.Application.Services
+namespace CourseService.Application.Interfaces
 {
     public interface IEnrollmentService
     {

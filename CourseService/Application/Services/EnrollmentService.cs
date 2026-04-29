@@ -1,5 +1,6 @@
 ﻿using CourseService.Application.Interfaces;
 using CourseService.Domain.Entities;
+using CourseService.Infrastructure.Repositories;
 
 namespace CourseService.Application.Services
 {

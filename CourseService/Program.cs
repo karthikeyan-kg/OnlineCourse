@@ -1,17 +1,32 @@
+using CourseService.API.Middleware;
 using CourseService.Application.Interfaces;
 using CourseService.Application.Services;
+using CourseService.Application.Validators;
 using CourseService.Infrastructure.Data;
 using CourseService.Infrastructure.Repositories;
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Serilog;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .WriteTo.File(
+        "logs/log-.txt",
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 1 // keep last 1 day
+    )
+    .CreateLogger();
+
+builder.Host.UseSerilog();
+
 // Add services to the container.
-// ✅ DB
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseInMemoryDatabase("CourseDb"));
 
@@ -19,13 +34,12 @@ builder.Services.AddScoped<ICourseRepository, CourseRepository>();
 builder.Services.AddScoped<IEnrollmentRepository, EnrollmentRepository>();
 
 builder.Services.AddScoped<ICourseService, CourseServices>();
-
+builder.Services.AddValidatorsFromAssemblyContaining<CourseValidator>();
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
-    // 🔐 JWT Security Definition
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -36,7 +50,6 @@ builder.Services.AddSwaggerGen(options =>
         Description = "Enter: Bearer {your token}"
     });
 
-    // 🔐 Apply globally
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -53,15 +66,6 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-var jwtKey = builder.Configuration["Jwt:Key"]
-    ?? throw new InvalidOperationException("Jwt:Key missing");
-
-var jwtIssuer = builder.Configuration["Jwt:Issuer"]
-    ?? throw new InvalidOperationException("Jwt:Issuer missing");
-
-var jwtAudience = builder.Configuration["Jwt:Audience"]
-    ?? throw new InvalidOperationException("Jwt:Audience missing");
-
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 .AddJwtBearer(options =>
 {
@@ -72,40 +76,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
 
-        ValidIssuer = jwtIssuer,
-        ValidAudience = jwtAudience,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(jwtKey)),
+            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])),
 
         ClockSkew = TimeSpan.Zero
-    };
-
-    options.Events = new JwtBearerEvents
-    {
-        OnMessageReceived = context =>
-        {
-            var authHeader = context.Request.Headers["Authorization"].ToString();
-            // Check your console to see if it looks like "Bearer eyJ..." or something else
-            Console.WriteLine($"Incoming Header: {authHeader}");
-            return Task.CompletedTask;
-        }
-    };
-
-
-    options.Events = new JwtBearerEvents
-    {
-        OnAuthenticationFailed = context =>
-        {
-            // This will print the exact error (Signature mismatch, Expired, etc.)
-            Console.WriteLine("JWT Error: " + context.Exception.Message);
-            return Task.CompletedTask;
-        }
     };
 });
 
 
 builder.Services.AddAuthorization();
-
+builder.Services.AddExceptionHandler<ExceptionHandlingMiddleware>();
+builder.Services.AddProblemDetails();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -114,7 +97,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
+app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

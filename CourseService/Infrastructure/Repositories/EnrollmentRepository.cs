@@ -1,5 +1,4 @@
-﻿using CourseService.Application.Interfaces;
-using CourseService.Domain.Entities;
+﻿using CourseService.Domain.Entities;
 using CourseService.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 

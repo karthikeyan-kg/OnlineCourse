@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using UserService.Application.DTOs;
 using UserService.Application.Interfaces;
@@ -38,21 +39,51 @@ namespace UserService.Application.Services
             var user = new User
             {
                 Username = dto.Username,
-                Password = dto.Password,
+                Password = HashPassword(dto.Password),
                 Role = Enum.Parse<UserRole>(dto.Role, true)
             };
 
             await _repo.AddAsync(user);
             return GenerateToken(user);
         }
+        public static string HashPassword(string password)
+        {
+            byte[] salt = RandomNumberGenerator.GetBytes(16);
+
+            var pbkdf2 = new Rfc2898DeriveBytes(
+                password,
+                salt,
+                100_000,
+                HashAlgorithmName.SHA256);
+
+            byte[] hash = pbkdf2.GetBytes(32);
+
+            return Convert.ToBase64String(salt) + "." + Convert.ToBase64String(hash);
+        }
 
         public async Task<string> Login(LoginDto dto)
         {
             var user = await _repo.GetByUsername(dto.Username);
-            if (user == null || user.Password != dto.Password)
+            if (user == null || !VerifyPassword(dto.Password,user.Password))
                 throw new Exception("Invalid credentials");
 
             return GenerateToken(user);
+        }
+        private bool VerifyPassword(string password, string stored)
+        {
+            var parts = stored.Split('.');
+            var salt = Convert.FromBase64String(parts[0]);
+            var storedHash = Convert.FromBase64String(parts[1]);
+
+            var pbkdf2 = new Rfc2898DeriveBytes(
+                password,
+                salt,
+                100_000,
+                HashAlgorithmName.SHA256);
+
+            byte[] computedHash = pbkdf2.GetBytes(32);
+
+            return CryptographicOperations.FixedTimeEquals(storedHash, computedHash);
         }
 
         private string GenerateToken(User user)
