@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="ApiGateway/ApiGateway.csproj" Id="99dff519-d722-4232-88b6-8f8e2cb68930" />
   <Project Path="CourseService.Tests.Unit/CourseService.Tests.Unit.csproj" Id="333a35cf-271e-4533-a720-13ab0b2222ff" />
   <Project Path="CourseService/CourseService.csproj" />
   <Project Path="UserService.Tests.Integration/UserService.Tests.Unit.csproj" Id="5a2aa1b1-17de-42a3-a7f4-00d7b9ab9307" />

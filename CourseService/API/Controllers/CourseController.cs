@@ -21,7 +21,6 @@ namespace CourseService.API.Controllers
             var userId = Guid.Parse(User.FindFirst("UserId")?.Value);
             var course = await _courseService.CreateCourseAsync(dto, userId);
             return Ok(course);
-
         }
 
         [HttpGet]
